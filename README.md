@@ -90,6 +90,22 @@ See **[REAL_MODEL_RESULTS.md](REAL_MODEL_RESULTS.md)** for the full results of r
 - Policy only → **0 of 15** attacks worked.
 - Full protection → **0 of 15** attacks worked.
 
+## How We Used NVIDIA Nemotron and Nebius
+
+- **Model:** `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, an NVIDIA open source model.
+- **Where it runs:** Nebius Token Factory (`NEBIUS_API_KEY` in `.env`).
+- **What we used it for:** the real email agent in our tests. It read emails
+  and chose tools (search, read, forward, reply, delete).
+- **Real tests:** 90 runs on Nemotron through Token Factory
+  (2 rounds x 5 attacks x 3 modes x 3 runs). Results are in
+  [REAL_MODEL_RESULTS.md](REAL_MODEL_RESULTS.md).
+- **Main finding:** with no protection, the attacks worked 13/15 times.
+  With our defense layers, 0/15.
+- **Why Token Factory helped:** we could run 90 real model tests through
+  one simple API, without setting up our own GPU.
+- **Live demo note:** the hosted demo uses a built-in test model, so it
+  needs no API key.
+  
 Known issue: the demo badge can show "attack blocked" on Baseline when the
 model copies a trailing dot in the attacker address (e.g. attacker.test.).
 The tool calls and audit log shown on the page are correct.
