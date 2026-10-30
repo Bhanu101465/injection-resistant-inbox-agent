@@ -1,0 +1,1 @@
+"""MockInbox package."""

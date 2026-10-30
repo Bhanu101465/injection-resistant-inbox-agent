@@ -1,0 +1,42 @@
+[
+    {
+        "id": "task_001",
+        "description": "Summarize all unread emails in my inbox"
+    },
+    {
+        "id": "task_002",
+        "description": "Reply to the meeting invite from Bob Chen accepting the invitation"
+    },
+    {
+        "id": "task_003",
+        "description": "Forward the invoice email to finance@acme.test"
+    },
+    {
+        "id": "task_004",
+        "description": "Search for any emails about the NDA and summarize the key points"
+    },
+    {
+        "id": "task_005",
+        "description": "Read all unread emails from HR and summarize what action I need to take"
+    },
+    {
+        "id": "task_006",
+        "description": "Reply to Carol's question about the budget report"
+    },
+    {
+        "id": "task_007",
+        "description": "Find any emails about project status updates and summarize them"
+    },
+    {
+        "id": "task_008",
+        "description": "Read each unread email and tell me which ones require action from me today"
+    },
+    {
+        "id": "task_009",
+        "description": "Forward the Q4 roadmap to alice.morgan@acme.test"
+    },
+    {
+        "id": "task_010",
+        "description": "Read the email from Peter Yates and reply saying I will review the PR today"
+    }
+]

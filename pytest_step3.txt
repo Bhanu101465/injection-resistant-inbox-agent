@@ -1,0 +1,35 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\Bhanu\Desktop\Nvidia Project\inbox-agent\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Bhanu\Desktop\Nvidia Project\inbox-agent
+configfile: pyproject.toml
+plugins: anyio-4.15.1, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 139 items / 2 errors
+
+=================================== ERRORS ====================================
+__________________ ERROR collecting tests/test_extractor.py ___________________
+tests\test_extractor.py:5: in <module>
+    from src.defense.extractor import RuleExtractor
+src\defense\extractor.py:44: in <module>
+    class Extractor(ABC, Stage[SanitizedEmail, ExtractedEmail]):
+<frozen abc>:106: in __new__
+    ???
+E   TypeError: Cannot create a consistent method resolution
+E   order (MRO) for bases ABC, Stage
+_______________ ERROR collecting tests/test_protected_agent.py ________________
+tests\test_protected_agent.py:10: in <module>
+    from src.agent.protected_agent import ProtectedAgent
+src\agent\protected_agent.py:22: in <module>
+    from src.defense.extractor import RuleExtractor
+src\defense\extractor.py:44: in <module>
+    class Extractor(ABC, Stage[SanitizedEmail, ExtractedEmail]):
+<frozen abc>:106: in __new__
+    ???
+E   TypeError: Cannot create a consistent method resolution
+E   order (MRO) for bases ABC, Stage
+=========================== short test summary info ===========================
+ERROR tests/test_extractor.py - TypeError: Cannot create a consistent method ...
+ERROR tests/test_protected_agent.py - TypeError: Cannot create a consistent m...
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+============================== 2 errors in 0.31s ==============================

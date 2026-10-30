@@ -1,0 +1,8 @@
+{
+    "allowed_recipients": [
+        "@acme.test",
+        "alice.morgan@acme.test",
+        "bob.smith@acme.test",
+        "user@acme.test"
+    ]
+}

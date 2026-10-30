@@ -1,0 +1,34 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\Bhanu\Desktop\Nvidia Project\inbox-agent\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Bhanu\Desktop\Nvidia Project\inbox-agent
+configfile: pyproject.toml
+plugins: anyio-4.15.1, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 23 items
+
+tests/test_sanitizer.py::TestSanitizer::test_hidden_display_none_detected PASSED [  4%]
+tests/test_sanitizer.py::TestSanitizer::test_hidden_white_text_detected PASSED [  8%]
+tests/test_sanitizer.py::TestSanitizer::test_html_comment_detected PASSED [ 13%]
+tests/test_sanitizer.py::TestSanitizer::test_zero_width_chars_detected PASSED [ 17%]
+tests/test_sanitizer.py::TestSanitizer::test_zero_width_chars_removed_from_output PASSED [ 21%]
+tests/test_sanitizer.py::TestSanitizer::test_base64_blob_detected PASSED [ 26%]
+tests/test_sanitizer.py::TestSanitizer::test_clean_text_no_findings_for_normal_email PASSED [ 30%]
+tests/test_sanitizer.py::TestSanitizer::test_html_converted_to_text PASSED [ 34%]
+tests/test_sanitizer.py::TestSanitizer::test_visibility_hidden_detected PASSED [ 39%]
+tests/test_sanitizer.py::TestSanitizer::test_unicode_normalised PASSED   [ 43%]
+tests/test_sanitizer.py::TestSanitizer::test_attachment_text_sanitized PASSED [ 47%]
+tests/test_detector.py::TestInjectionDetector::test_benign_email_is_benign PASSED [ 52%]
+tests/test_detector.py::TestInjectionDetector::test_override_instruction_flagged PASSED [ 56%]
+tests/test_detector.py::TestInjectionDetector::test_ai_targeting_flagged PASSED [ 60%]
+tests/test_detector.py::TestInjectionDetector::test_tool_forward_flagged PASSED [ 65%]
+tests/test_detector.py::TestInjectionDetector::test_tool_delete_flagged PASSED [ 69%]
+tests/test_detector.py::TestInjectionDetector::test_urgent_authority_flagged PASSED [ 73%]
+tests/test_detector.py::TestInjectionDetector::test_exfil_address_flagged PASSED [ 78%]
+tests/test_detector.py::TestInjectionDetector::test_role_hijack_flagged PASSED [ 82%]
+tests/test_detector.py::TestInjectionDetector::test_score_in_range PASSED [ 86%]
+tests/test_detector.py::TestInjectionDetector::test_multiple_rules_raise_score PASSED [ 91%]
+tests/test_detector.py::TestInjectionDetector::test_sanitizer_findings_boost_score PASSED [ 95%]
+tests/test_detector.py::TestInjectionDetector::test_result_email_id_propagated PASSED [100%]
+
+============================= 23 passed in 1.48s ==============================

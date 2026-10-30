@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inbox Agent — Injection Defense Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #76a9fa;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p { color: var(--muted); margin-top: 6px; font-size: 0.9rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  select, input[type=text], textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color .2s;
+  }
+  select:focus, input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+  select { min-width: 220px; }
+  textarea { width: 100%; min-height: 60px; resize: vertical; }
+
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+  button#compare-btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    align-self: flex-end;
+  }
+  button#compare-btn:hover:not(:disabled) { opacity: 0.85; }
+  button#compare-btn:active:not(:disabled) { transform: scale(0.97); }
+  button#compare-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #spinner { display: none; color: var(--muted); font-size: 0.88rem; margin-top: 8px; }
+  #error-box { display: none; background: #3b1f1f; border: 1px solid var(--red); border-radius: var(--radius); padding: 14px; color: var(--red); margin-bottom: 16px; }
+
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+
+  .col-header {
+    font-size: 1rem; font-weight: 700; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.73rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge-red   { background: #3b1515; color: var(--red); border: 1px solid var(--red); }
+  .badge-green { background: #10302a; color: var(--green); border: 1px solid var(--green); }
+  .badge-yellow{ background: #332800; color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge-blue  { background: #1a2540; color: var(--accent); border: 1px solid var(--accent); }
+
+  .section-label {
+    font-size: 0.75rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em;
+    margin: 14px 0 6px;
+  }
+
+  .answer-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .tool-chip {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.78rem;
+    margin: 3px 3px 0 0;
+    font-family: monospace;
+  }
+
+  .decision-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .decision-item {
+    background: var(--surface2);
+    border-left: 3px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+  .decision-item.allow { border-color: var(--green); }
+  .decision-item.ask   { border-color: var(--yellow); }
+  .decision-item.deny  { border-color: var(--red); }
+
+  .detector-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+  .detector-box .score-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    margin: 8px 0 4px;
+    overflow: hidden;
+  }
+  .detector-box .score-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+    transition: width .5s ease;
+  }
+
+  #results { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ Inbox Agent — Injection Defense Demo</h1>
+  <p>Compare baseline (no defenses) vs protected (full pipeline) side-by-side.</p>
+</header>
+
+<!-- Controls -->
+<div class="card">
+  <div class="controls">
+
+    <div class="field" style="flex:2; min-width:220px;">
+      <label for="email-select">Email</label>
+      <select id="email-select">
+        <option value="">Loading emails…</option>
+      </select>
+    </div>
+
+    <div class="field" style="flex:3; min-width:260px;">
+      <label for="task-input">Task</label>
+      <textarea id="task-input" rows="2" placeholder="e.g. Summarize all unread emails in my inbox"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="llm-select">LLM</label>
+      <select id="llm-select">
+        <option value="gullible">Gullible (deliberate vulnerabilities)</option>
+        <option value="mock">Mock (always says Done)</option>
+        <option value="nvidia">NVIDIA NIM (requires API key)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>&nbsp;</label>
+      <div class="checkbox-row">
+        <input type="checkbox" id="auto-approve" />
+        <label for="auto-approve" style="text-transform:none; letter-spacing:0; font-size:.88rem; color:var(--text);">
+          Pretend the user clicks <strong>YES</strong> to every risky action
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>&nbsp;</label>
+      <button id="compare-btn" onclick="runCompare()">⚡ Compare</button>
+    </div>
+
+  </div>
+  <div id="spinner">⏳ Running baseline and protected… please wait.</div>
+</div>
+
+<!-- Error -->
+<div id="error-box"></div>
+
+<!-- Results -->
+<div id="results">
+  <div class="columns">
+    <!-- Baseline -->
+    <div class="card" id="col-baseline">
+      <div class="col-header">
+        <span>Baseline</span>
+        <span id="badge-baseline"></span>
+      </div>
+      <div class="section-label">Final Answer</div>
+      <div class="answer-box" id="answer-baseline"></div>
+      <div class="section-label">Tools Called</div>
+      <div id="tools-baseline"></div>
+      <div class="section-label">Decisions (from audit log)</div>
+      <ul class="decision-list" id="decisions-baseline"></ul>
+    </div>
+
+    <!-- Protected -->
+    <div class="card" id="col-protected">
+      <div class="col-header">
+        <span>Protected</span>
+        <span id="badge-protected"></span>
+      </div>
+      <div class="section-label">Final Answer</div>
+      <div class="answer-box" id="answer-protected"></div>
+      <div class="section-label">Tools Called</div>
+      <div id="tools-protected"></div>
+      <div class="section-label">Decisions (from audit log)</div>
+      <ul class="decision-list" id="decisions-protected"></ul>
+    </div>
+  </div>
+
+  <!-- Detector -->
+  <div class="card">
+    <div class="col-header">🔍 Detector Verdict</div>
+    <div class="detector-box" id="detector-box"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const API = "";  // same origin
+
+async function apiFetch(path, opts) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ── Load emails on page ready ──────────────────────────────────────────────
+async function loadEmails() {
+  const sel = document.getElementById("email-select");
+  try {
+    const emails = await apiFetch("/emails");
+    sel.innerHTML = "";
+    // Sort: attacks first then benign, alphabetical within
+    emails.sort((a, b) => {
+      if (a.label !== b.label) return a.label === "attack" ? -1 : 1;
+      return a.id.localeCompare(b.id);
+    });
+    for (const e of emails) {
+      const opt = document.createElement("option");
+      opt.value = e.id;
+      const icon = e.label === "attack" ? "🔴" : "🟢";
+      const cat  = e.category ? ` [${e.category}]` : "";
+      opt.textContent = `${icon} ${e.id}${cat} — ${e.subject}`;
+      sel.appendChild(opt);
+    }
+  } catch (err) {
+    sel.innerHTML = `<option>Error loading emails: ${err.message}</option>`;
+  }
+}
+
+// ── Load default task ──────────────────────────────────────────────────────
+async function loadDefaultTask() {
+  try {
+    const tasks = await apiFetch("/tasks");
+    if (tasks.length > 0) {
+      document.getElementById("task-input").value = tasks[0].description;
+    }
+  } catch (_) {}
+}
+
+// ── Render helpers ─────────────────────────────────────────────────────────
+function setError(msg) {
+  const box = document.getElementById("error-box");
+  box.textContent = "⚠️ " + msg;
+  box.style.display = "block";
+}
+function clearError() {
+  const box = document.getElementById("error-box");
+  box.style.display = "none";
+  box.textContent = "";
+}
+
+function renderBadge(attacked, mode) {
+  const el = document.getElementById(`badge-${mode}`);
+  if (attacked === null) { el.innerHTML = ""; return; }
+  if (attacked) {
+    el.innerHTML = `<span class="badge badge-red">⚠ attack worked</span>`;
+  } else {
+    el.innerHTML = `<span class="badge badge-green">✓ attack blocked</span>`;
+  }
+}
+
+function renderTools(toolCalls, mode) {
+  const el = document.getElementById(`tools-${mode}`);
+  if (!toolCalls || toolCalls.length === 0) {
+    el.innerHTML = `<span style="color:var(--muted);font-size:.82rem;">(none)</span>`;
+    return;
+  }
+  el.innerHTML = toolCalls.map(tc =>
+    `<span class="tool-chip">${tc.name}</span>`
+  ).join("");
+}
+
+function renderDecisions(auditEntries, mode) {
+  const ul = document.getElementById(`decisions-${mode}`);
+  ul.innerHTML = "";
+  if (!auditEntries || auditEntries.length === 0) {
+    ul.innerHTML = `<li style="color:var(--muted);font-size:.82rem;">No audit entries.</li>`;
+    return;
+  }
+  for (const entry of auditEntries) {
+    const li = document.createElement("li");
+    const tool = entry.tool || "?";
+    const args = entry.args ? JSON.stringify(entry.args) : "";
+
+    // Infer decision colour from tool name or result text
+    let cls = "allow";
+    const argStr = args.toLowerCase();
+    if (argStr.includes("denied") || argStr.includes("deny") || argStr.includes("[denied")) cls = "deny";
+    if (argStr.includes("ask")) cls = "ask";
+
+    li.className = `decision-item ${cls}`;
+    li.textContent = `${tool} — ${args.slice(0, 120)}${args.length > 120 ? "…" : ""}`;
+    ul.appendChild(li);
+  }
+}
+
+function renderDetector(detector) {
+  const box = document.getElementById("detector-box");
+  const verdictColors = { benign: "green", suspicious: "yellow", malicious: "red", uncertain: "blue" };
+  const cls = verdictColors[detector.verdict] || "blue";
+  const pct = Math.round((detector.score || 0) * 100);
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <strong>Verdict:</strong>
+      <span class="badge badge-${cls}">${detector.verdict.toUpperCase()}</span>
+      <span style="color:var(--muted);font-size:.82rem;">score ${pct}%</span>
+    </div>
+    <div class="score-bar"><div class="score-fill" style="width:${pct}%"></div></div>
+    <div style="color:var(--muted);font-size:.82rem;margin-top:4px;">${detector.reason || "—"}</div>
+  `;
+}
+
+function isAttackEmail(emailId) {
+  // Red dot prefix indicates attack
+  const sel = document.getElementById("email-select");
+  const opt = sel.options[sel.selectedIndex];
+  return opt && opt.textContent.startsWith("🔴");
+}
+
+// ── Main compare action ────────────────────────────────────────────────────
+async function runCompare() {
+  clearError();
+  const emailId   = document.getElementById("email-select").value;
+  const task      = document.getElementById("task-input").value.trim();
+  const llm       = document.getElementById("llm-select").value;
+  const autoApprove = document.getElementById("auto-approve").checked;
+
+  if (!emailId) { setError("Please select an email."); return; }
+  if (!task)    { setError("Please enter a task."); return; }
+
+  const btn = document.getElementById("compare-btn");
+  btn.disabled = true;
+  document.getElementById("spinner").style.display = "block";
+  document.getElementById("results").style.display = "none";
+
+  try {
+    const data = await apiFetch("/compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email_id: emailId, task, llm, auto_approve: autoApprove, ablate: [] }),
+    });
+
+    const isAttack = isAttackEmail(emailId);
+
+    // Baseline
+    document.getElementById("answer-baseline").textContent = data.baseline.final_answer || "(no answer)";
+    renderTools(data.baseline.tool_calls, "baseline");
+    renderDecisions(data.baseline.audit_entries, "baseline");
+    renderBadge(isAttack ? data.baseline.attack_succeeded : null, "baseline");
+
+    // Protected
+    document.getElementById("answer-protected").textContent = data.protected.final_answer || "(no answer)";
+    renderTools(data.protected.tool_calls, "protected");
+    renderDecisions(data.protected.audit_entries, "protected");
+    renderBadge(isAttack ? data.protected.attack_succeeded : null, "protected");
+
+    // Detector (same for both runs since it's the same email)
+    renderDetector(data.protected.detector);
+
+    document.getElementById("results").style.display = "block";
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById("spinner").style.display = "none";
+  }
+}
+
+// Boot
+loadEmails();
+loadDefaultTask();
+</script>
+</body>
+</html>
