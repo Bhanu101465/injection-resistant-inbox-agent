@@ -19,6 +19,7 @@ from typing import Any
 
 from src.defense.approval import Approval, ScriptedApproval
 from src.defense.detector import InjectionDetector, detect
+from src.defense.egress import EgressAllowlist, EgressDecision, egress_check
 from src.defense.extractor import RuleExtractor
 from src.defense.policy import Decision, PolicyEngine
 from src.defense.sanitizer import Sanitizer, sanitize
@@ -63,7 +64,7 @@ class ProtectedAgent:
     audit:     AuditLogger.
     approval:  Approval gate (default: ScriptedApproval(default=False)).
     policy:    PolicyEngine (constructed from audit if None).
-    ablate:    Set of layer names to disable: {'sanitizer','detector','extractor','policy'}.
+    ablate:    Set of layer names to disable: {'sanitizer','detector','extractor','policy','egress'}.
     """
 
     def __init__(
@@ -74,6 +75,7 @@ class ProtectedAgent:
         approval: Approval | None = None,
         policy: PolicyEngine | None = None,
         ablate: set[str] | None = None,
+        egress_allowlist: EgressAllowlist | None = None,
     ) -> None:
         self._llm = llm
         self._inbox = inbox
@@ -82,6 +84,7 @@ class ProtectedAgent:
         self._policy = policy or PolicyEngine(audit)
         self._executor = ToolExecutor(inbox, audit)
         self._ablate: set[str] = ablate or set()
+        self._egress_allowlist: EgressAllowlist = egress_allowlist or EgressAllowlist()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -195,6 +198,27 @@ class ProtectedAgent:
                             })
                             continue
                         approved_calls.add(tc.name)
+
+                # ── Egress check (Layer 6) ───────────────────────────────────
+                if "egress" not in self._ablate:
+                    eg = egress_check(tc.name, tc.arguments, self._egress_allowlist)
+                    if eg.decision == EgressDecision.BLOCK:
+                        logger.warning(
+                            "EGRESS BLOCKED tool=%s addr=%s reason=%s",
+                            tc.name, eg.address, eg.reason,
+                        )
+                        self._audit.log(
+                            tool=f"EGRESS_BLOCKED:{tc.name}",
+                            args={"address": eg.address, "reason": eg.reason},
+                        )
+                        result_str = f"[DENIED by egress check: {eg.reason}]"
+                        tool_results_msgs.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": tc.name,
+                            "content": result_str,
+                        })
+                        continue
 
                 # Execute
                 all_tool_calls.append(tc)

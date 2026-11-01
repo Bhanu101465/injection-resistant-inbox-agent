@@ -34,6 +34,10 @@ Incoming Email
                      tools (forward, reply, delete); default answer is No
       │
       ▼
+ 6. Egress Check   — before forward_email runs, verifies the destination address is
+                     in config/allowed_recipients.json; blocks and logs if not
+      │
+      ▼
     Agent          — only sees sanitized data; blocked calls never reach the inbox
 ```
 
@@ -93,3 +97,11 @@ See **[REAL_MODEL_RESULTS.md](REAL_MODEL_RESULTS.md)** for the full results of r
 Known issue: the demo badge can show "attack blocked" on Baseline when the
 model copies a trailing dot in the attacker address (e.g. attacker.test.).
 The tool calls and audit log shown on the page are correct.
+
+
+---
+
+## Future Work
+
+1. **Fix the detector** — raise catch rate from 55% toward 90%+. Focus on direct_override, encoded_payload and exfil_url patterns that currently slip through.
+2. **More runs** — increase to at least 10 runs per cell to get stable numbers.

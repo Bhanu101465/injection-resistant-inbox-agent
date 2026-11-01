@@ -1,0 +1,11 @@
+{
+    "_comment": "Egress allowlist — forward/reply destinations must match an address or domain here.",
+    "allowed_addresses": [
+        "alice.morgan@acme.test",
+        "bob.smith@acme.test",
+        "user@acme.test"
+    ],
+    "allowed_domains": [
+        "acme.test"
+    ]
+}
