@@ -201,7 +201,13 @@ class ProtectedAgent:
 
                 # ── Egress check (Layer 6) ───────────────────────────────────
                 if "egress" not in self._ablate:
-                    eg = egress_check(tc.name, tc.arguments, self._egress_allowlist)
+                    eg = egress_check(
+                        tc.name,
+                        tc.arguments,
+                        self._egress_allowlist,
+                        inbox=self._inbox,
+                        current_email=email,
+                    )
                     if eg.decision == EgressDecision.BLOCK:
                         logger.warning(
                             "EGRESS BLOCKED tool=%s addr=%s reason=%s",

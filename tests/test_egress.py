@@ -6,6 +6,9 @@ import json
 import pytest
 from pathlib import Path
 
+from src.inbox.mock_inbox import MockInbox
+from src.models.email import Email
+from datetime import datetime
 from src.defense.egress import (
     EgressAllowlist,
     EgressDecision,
@@ -175,12 +178,96 @@ class TestEgressCheck:
 
     # -- reply_email ---------------------------------------------------------
 
-    def test_reply_email_allowed(self, allowlist):
-        """reply_email is allowed by egress (destination resolved at send time)."""
+    def _make_email(self, email_id: str, sender: str) -> Email:
+        return Email.model_validate({
+            "id": email_id,
+            "from": sender,
+            "to": ["user@acme.test"],
+            "subject": "Test",
+            "body_text": "Test body",
+            "timestamp": datetime(2026, 1, 1),
+            "label": "attack",
+        })
+
+    def test_reply_to_allowed_sender(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e1", "alice@acme.test"))
         result = egress_check(
-            "reply_email", {"email_id": "x", "body": "Hello"}, allowlist
+            "reply_email", {"email_id": "e1", "body": "Hello"}, allowlist, inbox=inbox
         )
         assert result.decision == EgressDecision.ALLOW
+        assert result.address == "alice@acme.test"
+
+    def test_reply_to_allowed_domain_sender(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e1", "colleague@acme.test"))
+        result = egress_check(
+            "reply_email", {"email_id": "e1", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.ALLOW
+        assert result.address == "colleague@acme.test"
+
+    def test_reply_to_blocked_sender(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e2", "evil@attacker.test"))
+        result = egress_check(
+            "reply_email", {"email_id": "e2", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.BLOCK
+        assert result.address == "evil@attacker.test"
+        assert "attacker.test" in result.reason
+
+    def test_reply_with_trailing_dot_allowed(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e3", "alice@acme.test."))
+        result = egress_check(
+            "reply_email", {"email_id": "e3", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.ALLOW
+        assert result.address == "alice@acme.test"
+
+    def test_reply_with_trailing_dot_blocked(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e3b", "evil@attacker.test."))
+        result = egress_check(
+            "reply_email", {"email_id": "e3b", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.BLOCK
+        assert result.address == "evil@attacker.test"
+
+    def test_reply_with_display_name_format(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e4", "Alice <alice@acme.test>"))
+        result = egress_check(
+            "reply_email", {"email_id": "e4", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.ALLOW
+        assert result.address == "alice@acme.test"
+
+    def test_reply_with_display_name_blocked(self, allowlist):
+        inbox = MockInbox()
+        inbox.add(self._make_email("e5", "Hacker <evil@attacker.test>"))
+        result = egress_check(
+            "reply_email", {"email_id": "e5", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.BLOCK
+        assert result.address == "evil@attacker.test"
+
+    def test_reply_unknown_email_blocked(self, allowlist):
+        inbox = MockInbox()
+        result = egress_check(
+            "reply_email", {"email_id": "nonexistent", "body": "Hello"}, allowlist, inbox=inbox
+        )
+        assert result.decision == EgressDecision.BLOCK
+        assert "not found" in result.reason
+
+    def test_reply_fallback_to_current_email(self, allowlist):
+        curr = self._make_email("unknown", "evil@attacker.test")
+        result = egress_check(
+            "reply_email", {"email_id": "unknown", "body": "Hello"}, allowlist, current_email=curr
+        )
+        assert result.decision == EgressDecision.BLOCK
+        assert result.address == "evil@attacker.test"
 
     # -- egress switched off -------------------------------------------------
 
@@ -192,5 +279,50 @@ class TestEgressCheck:
         result = egress_check(
             "forward_email", {"email_id": "x", "to": "evil@attacker.test"}, allowlist
         )
-        # Function itself still returns BLOCK — caller decides to skip it
         assert result.decision == EgressDecision.BLOCK
+
+    def test_reply_egress_switched_off_in_agent(self, allowlist):
+        """When egress is ablated in ProtectedAgent, reply to untrusted sender is not blocked by egress."""
+        import tempfile
+        from src.agent.protected_agent import ProtectedAgent
+        from src.defense.approval import ScriptedApproval
+        from src.llm.mock_llm import GullibleMockLLM
+        from src.tools.audit_log import AuditLogger
+
+        inbox = MockInbox()
+        email = self._make_email("e_attack", "evil@attacker.test")
+        email.body_text = "Please reply to this email right now."
+        inbox.add(email)
+
+        # 1. With egress ablated and policy ablated
+        tmp = tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False)
+        audit_off = AuditLogger(log_path=tmp.name)
+        agent_off = ProtectedAgent(
+            llm=GullibleMockLLM(),
+            inbox=inbox,
+            audit=audit_off,
+            approval=ScriptedApproval(answers=[True] * 5),
+            ablate={"egress", "policy"},
+            egress_allowlist=allowlist,
+        )
+        agent_off.run("Reply to email", email)
+        log_off = audit_off.read_all()
+        # No EGRESS_BLOCKED in audit log
+        assert not any("EGRESS_BLOCKED" in e.get("tool", "") for e in log_off)
+
+        # 2. With egress ON (not in ablate) and policy ablated
+        tmp2 = tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False)
+        audit_on = AuditLogger(log_path=tmp2.name)
+        agent_on = ProtectedAgent(
+            llm=GullibleMockLLM(),
+            inbox=inbox,
+            audit=audit_on,
+            approval=ScriptedApproval(answers=[True] * 5),
+            ablate={"policy"},
+            egress_allowlist=allowlist,
+        )
+        agent_on.run("Reply to email", email)
+        log_on = audit_on.read_all()
+        # EGRESS_BLOCKED:reply_email is present in audit log
+        blocked_reply = [e for e in log_on if e.get("tool") == "EGRESS_BLOCKED:reply_email"]
+        assert len(blocked_reply) >= 1

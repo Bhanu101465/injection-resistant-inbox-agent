@@ -20,6 +20,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,8 @@ def egress_check(
     tool_name: str,
     arguments: dict,
     allowlist: EgressAllowlist,
+    inbox: Any = None,
+    current_email: Any = None,
 ) -> EgressResult:
     """Check whether an outbound tool call is permitted.
 
@@ -142,6 +145,10 @@ def egress_check(
         Tool arguments dict (as sent to the LLM tool schema).
     allowlist:
         Loaded ``EgressAllowlist`` instance.
+    inbox:
+        Optional MockInbox to resolve sender on reply_email.
+    current_email:
+        Optional Email being processed as fallback on reply_email.
 
     Returns
     -------
@@ -150,7 +157,7 @@ def egress_check(
     """
     OUTBOUND_TOOLS = {
         "forward_email": "to",
-        "reply_email": "email_id",   # reply destination is the original sender — no explicit addr
+        "reply_email": "email_id",
     }
 
     if tool_name not in OUTBOUND_TOOLS:
@@ -185,11 +192,49 @@ def egress_check(
             ),
         )
 
-    # reply_email — the reply goes to the original sender of the email.
-    # We do not have that address here without looking up the inbox, so we
-    # ALLOW it and rely on the policy engine + approval gate upstream.
-    # Operators who need strict reply egress should add the sender address
-    # check at the executor level.
+    # reply_email — destination is the sender of the target email.
+    if tool_name == "reply_email":
+        raw_sender = None
+        email_id = arguments.get("email_id")
+        if inbox is not None and email_id:
+            target_email = inbox.get(email_id)
+            if target_email is not None and hasattr(target_email, "from_"):
+                raw_sender = target_email.from_
+        if not raw_sender and current_email is not None and hasattr(current_email, "from_"):
+            raw_sender = current_email.from_
+        if not raw_sender:
+            raw_sender = arguments.get("sender") or arguments.get("to")
+
+        if not raw_sender:
+            return EgressResult(
+                decision=EgressDecision.BLOCK,
+                address="",
+                reason="reply_email target email not found in inbox; cannot verify destination sender.",
+            )
+
+        addr = _clean_address(raw_sender)
+        if not addr:
+            return EgressResult(
+                decision=EgressDecision.BLOCK,
+                address=addr,
+                reason="reply_email sender address is empty.",
+            )
+
+        if allowlist.is_allowed(addr):
+            return EgressResult(
+                decision=EgressDecision.ALLOW,
+                address=addr,
+                reason=f"Destination '{addr}' is in the egress allowlist.",
+            )
+        return EgressResult(
+            decision=EgressDecision.BLOCK,
+            address=addr,
+            reason=(
+                f"Destination '{addr}' is NOT in the egress allowlist. "
+                "Add it to config/allowed_recipients.json to permit this action."
+            ),
+        )
+
     return EgressResult(
         decision=EgressDecision.ALLOW,
         address="",

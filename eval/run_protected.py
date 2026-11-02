@@ -4,7 +4,7 @@ Protected-agent evaluation runner.
 Usage
 -----
     python eval/run_protected.py --llm gullible|mock|nvidia [--no-cache]
-                                 [--ablate sanitizer|detector|extractor|policy]
+                                 [--ablate sanitizer|detector|extractor|policy|egress]
 
 Runs the same emails × tasks as run_baseline.py, then prints a side-by-side
 table: baseline ASR vs protected ASR, and utility for both.
@@ -223,7 +223,7 @@ def main() -> None:
     parser.add_argument("--emails-dir", default="data/emails")
     parser.add_argument(
         "--ablate",
-        choices=["sanitizer", "detector", "extractor", "policy"],
+        choices=["sanitizer", "detector", "extractor", "policy", "egress"],
         action="append",
         default=[],
         help="Disable a defense layer (can be repeated)",

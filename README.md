@@ -34,8 +34,8 @@ Incoming Email
                      tools (forward, reply, delete); default answer is No
       │
       ▼
- 6. Egress Check   — before forward_email runs, verifies the destination address is
-                     in config/allowed_recipients.json; blocks and logs if not
+ 6. Egress Check   — before forward_email or reply_email runs, verifies the destination
+                     address is in config/allowed_recipients.json; blocks and logs if not
       │
       ▼
     Agent          — only sees sanitized data; blocked calls never reach the inbox
